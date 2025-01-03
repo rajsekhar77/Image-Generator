@@ -1,0 +1,20 @@
+import { createContext, useContext, useState } from "react";
+
+const AppContext = createContext();
+
+export const useAppContext = () => {
+    return useContext(AppContext);
+}
+
+export const AppContextProvider = ({ children }) => {
+  const [user, setUser] = useState(null);
+  
+  const value = {user, setUser}
+
+  // Providing context values to children
+  return (
+    <AppContext.Provider value={value}>
+      {children} { /* children here is <App /> */}
+    </AppContext.Provider>
+  );
+};
