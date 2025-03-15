@@ -1,6 +1,8 @@
 import bcrypt, { genSalt } from "bcrypt";
 import jwt from "jsonwebtoken";
 import userModel from "../models/userModel.js";
+import razorpay from "razorpay";
+import transactionModel from "../models/transcationModel.js";
 
 export const registerUser = async (req, res) => {
   try {
@@ -69,6 +71,82 @@ export const userCredits = async (req, res) => {
       success: true,
       credits: user.creditBalance,
       user: { name: user.name },
+    });
+  } catch (error) {
+    console.log(error.message);
+    res.json({ success: false, message: error.message });
+  }
+};
+
+// razorpay instance
+
+const razorpayInstance = new razorpay({
+  key_id: process.env.RAZORPAY_KEY_ID,
+  key_secret: process.env.RAZORPAY_KEY_SECRET,
+});
+
+// CONTROLLER FUNCTION
+
+export const paymentRazorpay = async (req, res) => {
+  try {
+    const { userID, planId } = req.body;
+
+    const userData = await userModel.findById(userID);
+
+    if (!userData || !planId) {
+      return res.json({ success: false, message: "Missing Details" });
+    }
+
+    let credits, plan, amount, date;
+
+    switch (planId) {
+      case "Basic":
+        plan = "Basic";
+        credits = 100;
+        amount = 10;
+        break;
+      case "Advanced":
+        plan = "Advanced";
+        credits = 500;
+        amount = 50;
+        break;
+      case "Business":
+        plan = "Business";
+        credits = 5000;
+        amount = 250;
+      default:
+        return res.json({ success: false, message: "plan not found" });
+    }
+
+    date = Date.now();
+
+    const transactionData = {
+      userID,
+      plan,
+      amount,
+      credits,
+      date,
+    };
+
+    const newTransaction = await transactionModel.create(transactionData);
+
+    // await razorpayInstance.orders.create(options, (err, orders) => {
+
+    // })
+
+    const options = {
+      amount: amount * 100,
+      currency: process.env.CURRENCY,
+      receipt: newTransaction._id,
+    };
+
+    await razorpayInstance.orders.create(options, (error, order) => {
+      if (error) {
+        console.log(error);
+        return res.json({ success: false, message: error });
+      }
+
+      res.json({ success: true, order });
     });
   } catch (error) {
     console.log(error.message);
